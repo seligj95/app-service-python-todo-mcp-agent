@@ -2,7 +2,8 @@ Flask==3.0.0
 Flask-CORS==4.0.0
 Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.23
-gunicorn==21.2.0
+uvicorn==0.24.0
+asgiref==3.7.2
 python-dotenv==1.0.0
 azure-identity==1.15.0
 azure-keyvault-secrets==4.8.0
