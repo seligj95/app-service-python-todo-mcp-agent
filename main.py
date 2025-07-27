@@ -76,6 +76,8 @@ class AzureAIFoundryService:
         
     async def initialize(self):
         """Initialize Azure AI Foundry connection"""
+        logger.info("=== Starting Azure AI Foundry initialization ===")
+        
         if not AZURE_AI_AVAILABLE:
             logger.warning("Azure AI packages not available")
             return False
@@ -86,29 +88,99 @@ class AzureAIFoundryService:
             model_deployment_name = os.getenv('AZURE_AI_MODEL_DEPLOYMENT_NAME', 'gpt-4-1106-preview')
             app_service_url = os.getenv('AZURE_APP_SERVICE_URL', 'http://localhost:8000')
             
+            logger.info("=== Environment Variables ===")
+            logger.info(f"  AZURE_AI_PROJECT_ENDPOINT: {project_endpoint}")
+            logger.info(f"  AZURE_AI_MODEL_DEPLOYMENT_NAME: {model_deployment_name}")
+            logger.info(f"  AZURE_APP_SERVICE_URL: {app_service_url}")
+            
+            # Also log other Azure-related env vars for debugging
+            other_vars = [
+                'AZURE_OPENAI_ENDPOINT',
+                'AZURE_OPENAI_DEPLOYMENT_NAME', 
+                'AZURE_TENANT_ID',
+                'AZURE_CLIENT_ID',
+                'AZURE_CLIENT_SECRET'
+            ]
+            for var in other_vars:
+                value = os.getenv(var)
+                if value:
+                    logger.info(f"  {var}: {value[:50]}...")
+                else:
+                    logger.info(f"  {var}: Not set")
+            
             if not project_endpoint:
-                logger.warning("AZURE_AI_PROJECT_ENDPOINT not configured")
+                logger.error("AZURE_AI_PROJECT_ENDPOINT not configured")
                 return False
             
-            # Initialize Azure AI Project Client with managed identity
-            credential = DefaultAzureCredential()
-            self.project_client = AIProjectClient(
-                endpoint=project_endpoint,
-                credential=credential
-            )
+            # Initialize Azure AI Project Client using connection string format
+            logger.info("=== Initializing Azure Credentials ===")
+            try:
+                credential = DefaultAzureCredential()
+                logger.info("DefaultAzureCredential created successfully")
+                
+                # Test credential by getting a token
+                logger.info("Testing credential by requesting token...")
+                token = credential.get_token("https://cognitiveservices.azure.com/.default")
+                logger.info(f"Token acquired successfully, expires: {token.expires_on}")
+            except Exception as cred_error:
+                logger.error(f"Credential initialization failed: {cred_error}")
+                return False
+            
+            # Try the from_connection_string method first
+            logger.info("=== Creating AIProjectClient ===")
+            logger.info(f"Using connection string: {project_endpoint}")
+            try:
+                self.project_client = AIProjectClient.from_connection_string(
+                    conn_str=project_endpoint,
+                    credential=credential
+                )
+                logger.info("✓ Successfully created AIProjectClient with connection string")
+            except Exception as conn_error:
+                logger.error(f"✗ Connection string method failed: {conn_error}")
+                logger.info("Trying fallback method with direct endpoint...")
+                # Fallback to direct endpoint initialization
+                try:
+                    # Convert connection string to endpoint URL
+                    parts = project_endpoint.split(';')
+                    if len(parts) >= 4:
+                        endpoint_url = f"https://{parts[3]}.{parts[0]}"
+                        logger.info(f"Converted to endpoint URL: {endpoint_url}")
+                        self.project_client = AIProjectClient(
+                            endpoint=endpoint_url,
+                            credential=credential
+                        )
+                        logger.info("✓ Successfully created AIProjectClient with direct endpoint")
+                    else:
+                        raise Exception("Invalid connection string format")
+                except Exception as direct_error:
+                    logger.error(f"✗ Direct endpoint method also failed: {direct_error}")
+                    return False
             
             # Set MCP server URL to point to our own app
             self.mcp_server_url = f"{app_service_url}/mcp/stream"
             self.model_deployment_name = model_deployment_name
             
-            logger.info(f"Azure AI Foundry initialized with endpoint: {project_endpoint}")
-            logger.info(f"MCP Server URL: {self.mcp_server_url}")
+            logger.info(f"Azure AI Foundry initialized successfully")
+            logger.info(f"  Project client: {type(self.project_client)}")
+            logger.info(f"  MCP Server URL: {self.mcp_server_url}")
+            logger.info(f"  Model deployment: {self.model_deployment_name}")
+            
+            # Test the connection by trying to get project info
+            try:
+                logger.info("Testing connection by checking project endpoint...")
+                endpoint_url = self.project_client.get_endpoint_url()
+                logger.info(f"Project endpoint URL: {endpoint_url}")
+            except Exception as test_error:
+                logger.warning(f"Failed to test connection: {test_error}")
             
             self.initialized = True
             return True
             
         except Exception as e:
             logger.error(f"Failed to initialize Azure AI Foundry: {e}")
+            logger.error(f"Exception type: {type(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
     
     async def create_agent(self) -> Optional[str]:
@@ -605,6 +677,124 @@ async def health():
         "ai_foundry_initialized": ai_foundry_service.initialized
     }
 
+@app.get("/debug/azure-ai-status")
+async def azure_ai_debug_status():
+    """Comprehensive Azure AI debugging endpoint"""
+    import traceback
+    from azure.identity import DefaultAzureCredential
+    
+    status = {
+        "timestamp": datetime.now().isoformat(),
+        "azure_ai_packages_available": AZURE_AI_AVAILABLE,
+        "ai_foundry_service_initialized": ai_foundry_service.initialized,
+        "environment_variables": {},
+        "credential_test": {},
+        "project_client_test": {},
+        "agent_test": {}
+    }
+    
+    # Check environment variables
+    env_vars = [
+        'AZURE_AI_PROJECT_ENDPOINT',
+        'AZURE_AI_MODEL_DEPLOYMENT_NAME',
+        'AZURE_APP_SERVICE_URL',
+        'AZURE_OPENAI_ENDPOINT',
+        'AZURE_OPENAI_DEPLOYMENT_NAME',
+        'AZURE_TENANT_ID',
+        'AZURE_CLIENT_ID',
+        'AZURE_CLIENT_SECRET'
+    ]
+    
+    for var in env_vars:
+        value = os.getenv(var)
+        if value:
+            # Mask sensitive values
+            if 'SECRET' in var or 'KEY' in var:
+                status["environment_variables"][var] = f"{value[:10]}...***"
+            else:
+                status["environment_variables"][var] = value
+        else:
+            status["environment_variables"][var] = None
+    
+    # Test Azure credential
+    try:
+        credential = DefaultAzureCredential()
+        token = credential.get_token("https://cognitiveservices.azure.com/.default")
+        status["credential_test"] = {
+            "success": True,
+            "expires_on": token.expires_on,
+            "message": "Credential test successful"
+        }
+    except Exception as e:
+        status["credential_test"] = {
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+    
+    # Test project client
+    if AZURE_AI_AVAILABLE:
+        try:
+            project_endpoint = os.getenv('AZURE_AI_PROJECT_ENDPOINT')
+            if project_endpoint:
+                from azure.ai.projects import AIProjectClient
+                credential = DefaultAzureCredential()
+                
+                # Try connection string method
+                try:
+                    client = AIProjectClient.from_connection_string(
+                        conn_str=project_endpoint,
+                        credential=credential
+                    )
+                    status["project_client_test"] = {
+                        "success": True,
+                        "method": "connection_string",
+                        "message": "Project client created successfully"
+                    }
+                except Exception as conn_error:
+                    # Try direct endpoint method
+                    try:
+                        parts = project_endpoint.split(';')
+                        if len(parts) >= 4:
+                            endpoint_url = f"https://{parts[3]}.{parts[0]}"
+                            client = AIProjectClient(
+                                endpoint=endpoint_url,
+                                credential=credential
+                            )
+                            status["project_client_test"] = {
+                                "success": True,
+                                "method": "direct_endpoint",
+                                "endpoint_url": endpoint_url,
+                                "message": "Project client created with fallback method"
+                            }
+                        else:
+                            raise Exception("Invalid connection string format")
+                    except Exception as direct_error:
+                        status["project_client_test"] = {
+                            "success": False,
+                            "connection_string_error": str(conn_error),
+                            "direct_endpoint_error": str(direct_error),
+                            "traceback": traceback.format_exc()
+                        }
+            else:
+                status["project_client_test"] = {
+                    "success": False,
+                    "error": "AZURE_AI_PROJECT_ENDPOINT not configured"
+                }
+        except Exception as e:
+            status["project_client_test"] = {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            }
+    else:
+        status["project_client_test"] = {
+            "success": False,
+            "error": "Azure AI packages not available"
+        }
+    
+    return status
+
 @app.get("/tools")
 async def list_tools():
     """REST endpoint to list available tools"""
@@ -764,6 +954,17 @@ async def send_chat_message(chat_data: ChatMessage):
     except Exception as e:
         logger.error(f"Failed to send chat message: {e}")
         raise HTTPException(status_code=500, detail="Failed to process chat message")
+
+@app.get("/api/chat/status")
+async def chat_status():
+    """Get the status of the Azure AI Foundry chat service"""
+    return {
+        "available": ai_foundry_service.initialized,
+        "azure_ai_available": AZURE_AI_AVAILABLE,
+        "project_endpoint": os.getenv('AZURE_AI_PROJECT_ENDPOINT'),
+        "model_deployment": os.getenv('AZURE_AI_MODEL_DEPLOYMENT_NAME'),
+        "app_service_url": os.getenv('AZURE_APP_SERVICE_URL')
+    }
 
 # MCP Streamable HTTP Endpoints
 @app.get("/mcp/stream")

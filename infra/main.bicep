@@ -107,8 +107,12 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
           value: gpt41MiniDeployment.name
         }
         {
+          name: 'AZURE_AI_MODEL_DEPLOYMENT_NAME'
+          value: gpt41MiniDeployment.name
+        }
+        {
           name: 'AZURE_AI_PROJECT_ENDPOINT'
-          value: 'https://${aiProject.properties.discoveryUrl}'
+          value: '${location}.api.azureml.ms;${subscription().subscriptionId};${resourceGroup().name};${aiProject.name}'
         }
         {
           name: 'AZURE_APP_SERVICE_URL'
@@ -318,7 +322,7 @@ output SERVICE_WEB_URI string = 'https://${appService.properties.defaultHostName
 output SERVICE_TODO_APP_IDENTITY_PRINCIPAL_ID string = appService.identity.principalId
 output AZURE_OPENAI_ENDPOINT string = openAIAccount.properties.endpoint
 output AZURE_OPENAI_NAME string = openAIAccount.name
-output AZURE_AI_PROJECT_ENDPOINT string = 'https://${aiProject.properties.discoveryUrl}'
+output AZURE_AI_PROJECT_ENDPOINT string = '${location}.api.azureml.ms;${subscription().subscriptionId};${resourceGroup().name};${aiProject.name}'
 output AZURE_AI_PROJECT_NAME string = aiProject.name
 output AZURE_AI_HUB_NAME string = aiHub.name
 output AZURE_OPENAI_DEPLOYMENT_NAME string = gpt41MiniDeployment.name
