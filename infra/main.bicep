@@ -62,7 +62,7 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'PYTHON|3.12'
-      appCommandLine: 'bash startup.sh'
+      appCommandLine: 'python -m gunicorn --bind=0.0.0.0:8000 --workers=2 --timeout=600 main:app'
       appSettings: [
         {
           name: 'SECRET_KEY'

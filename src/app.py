@@ -18,17 +18,17 @@ def create_app():
     # Get the absolute path to the project root
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
-    
+
     # Set paths relative to the project structure
     static_folder = os.path.join(project_root, 'static')
     template_folder = os.path.join(current_dir, 'templates')
-    
+
     app = Flask(
         __name__,
         static_folder=static_folder,
         template_folder=template_folder
     )
-    
+
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
