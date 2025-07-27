@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Agent Chat - To-do List App</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>MCP Agent Chat</h1>
+            <p>AI-powered todo management with Azure AI Foundry</p>
+        </div>
+
+        <!-- Navigation -->
+        <div class="navigation-tabs">
+            <a href="/" class="nav-tab">Todo List</a>
+            <a href="/chat" class="nav-tab active">AI Chat</a>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant-message">
+                    <div class="message-content">
+                        <strong>AI Assistant:</strong> Hi! I'm your AI assistant powered by Azure AI Foundry with MCP integration. I can help you manage your todos through natural language. Try asking me to "create a new todo" or "show me all my todos"!
+                    </div>
+                    <div class="message-time" id="initialTime"></div>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <form id="chatForm" class="chat-form">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            id="chatInput" 
+                            placeholder="Ask me to manage your todos... (e.g., 'Create a high priority todo to finish the project')"
+                            class="chat-input"
+                            disabled
+                        >
+                        <button type="submit" id="sendButton" class="send-button" disabled>
+                            <span class="send-text">Send</span>
+                            <span class="send-loading" style="display: none;">
+                                <span class="spinner"></span>
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Status indicator -->
+        <div class="status-indicator" id="statusIndicator">
+            <span class="status-text">Connecting to AI service...</span>
+        </div>
+    </div>
+
+    <script src="/static/js/chat.js"></script>
+    <script>
+        // Set initial timestamp
+        document.getElementById('initialTime').textContent = new Date().toLocaleTimeString();
+    </script>
+</body>
+</html>
