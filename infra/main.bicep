@@ -62,11 +62,8 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'PYTHON|3.12'
+      appCommandLine: 'gunicorn --bind=0.0.0.0 --timeout 600 --access-logfile \'-\' --error-logfile \'-\' main:app'
       appSettings: [
-        {
-          name: 'WEBSITES_PORT'
-          value: '8000'
-        }
         {
           name: 'SECRET_KEY'
           value: secretKey

@@ -4,10 +4,8 @@ Business logic service for Todo operations.
 from typing import List, Optional, Dict, Any
 from sqlalchemy.exc import SQLAlchemyError
 
-try:
-    from models import Todo, db
-except ImportError:
-    from src.models import Todo, db
+# Import from src package explicitly
+from src.models import Todo, db
 
 
 class TodoService:

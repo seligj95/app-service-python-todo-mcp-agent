@@ -5,12 +5,9 @@ import os
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
-try:
-    from models import db
-    from todo_service import TodoService
-except ImportError:
-    from src.models import db
-    from src.todo_service import TodoService
+# Import from src package explicitly
+from src.models import db
+from src.todo_service import TodoService
 
 
 def create_app():
