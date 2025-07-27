@@ -6,6 +6,6 @@ infra:
   path: infra
 services:
   todo-app:
-    project: src
+    project: .
     host: appservice
     language: python

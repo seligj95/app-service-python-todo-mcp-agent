@@ -1,52 +1,44 @@
-/**
- * Todo App JavaScript functionality
- */
+// Todo List JavaScript functionality
 
 class TodoApp {
     constructor() {
-        this.currentFilter = 'all';
-        this.editModal = null;
+        this.todos = [];
         this.init();
     }
 
     init() {
-        this.bindEvents();
         this.loadTodos();
-        this.editModal = new bootstrap.Modal(document.getElementById('editModal'));
+        this.bindEvents();
     }
 
     bindEvents() {
         // Add todo form
-        document.getElementById('addTodoForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.addTodo();
-        });
+        const addForm = document.getElementById('addTodoForm');
+        if (addForm) {
+            addForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.addTodo();
+            });
+        }
 
         // Filter buttons
-        document.querySelectorAll('[data-filter]').forEach(btn => {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                this.setFilter(e.target.dataset.filter);
+                const filter = e.target.dataset.filter;
+                this.filterTodos(filter);
+                
+                // Update active button
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
             });
-        });
-
-        // Edit form
-        document.getElementById('saveEditBtn').addEventListener('click', () => {
-            this.saveEdit();
         });
     }
 
     async loadTodos() {
         try {
-            let url = '/api/todos';
-            if (this.currentFilter === 'complete') {
-                url += '?completed=true';
-            } else if (this.currentFilter === 'incomplete') {
-                url += '?completed=false';
-            }
-
-            const response = await fetch(url);
-            const todos = await response.json();
-            this.renderTodos(todos);
+            const response = await fetch('/api/todos');
+            this.todos = await response.json();
+            this.renderTodos();
         } catch (error) {
             console.error('Error loading todos:', error);
             this.showError('Failed to load todos');
@@ -54,35 +46,45 @@ class TodoApp {
     }
 
     async addTodo() {
-        const title = document.getElementById('todoTitle').value.trim();
-        const description = document.getElementById('todoDescription').value.trim();
-        const priority = document.getElementById('todoPriority').value;
+        const titleInput = document.getElementById('todoTitle');
+        const descInput = document.getElementById('todoDescription');
+        const priorityInput = document.getElementById('todoPriority');
 
+        const title = titleInput.value.trim();
         if (!title) {
-            this.showError('Title is required');
+            this.showError('Please enter a title');
             return;
         }
+
+        const todoData = {
+            title: title,
+            description: descInput.value.trim(),
+            priority: priorityInput.value
+        };
 
         try {
             const response = await fetch('/api/todos', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    title,
-                    description,
-                    priority
-                })
+                body: JSON.stringify(todoData)
             });
 
             if (response.ok) {
-                document.getElementById('addTodoForm').reset();
-                this.loadTodos();
-                this.showSuccess('Todo added successfully');
+                const newTodo = await response.json();
+                this.todos.push(newTodo);
+                this.renderTodos();
+                
+                // Clear form
+                titleInput.value = '';
+                descInput.value = '';
+                priorityInput.value = 'medium';
+                
+                this.showSuccess('Todo added successfully!');
             } else {
                 const error = await response.json();
-                this.showError(error.error || 'Failed to add todo');
+                this.showError(error.detail || 'Failed to add todo');
             }
         } catch (error) {
             console.error('Error adding todo:', error);
@@ -90,21 +92,27 @@ class TodoApp {
         }
     }
 
-    async toggleComplete(todoId, completed) {
+    async updateTodo(id, updates) {
         try {
-            const response = await fetch(`/api/todos/${todoId}/complete`, {
-                method: 'PATCH',
+            const response = await fetch(`/api/todos/${id}`, {
+                method: 'PUT',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ completed })
+                body: JSON.stringify(updates)
             });
 
             if (response.ok) {
-                this.loadTodos();
+                const updatedTodo = await response.json();
+                const index = this.todos.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    this.todos[index] = updatedTodo;
+                    this.renderTodos();
+                }
+                this.showSuccess('Todo updated successfully!');
             } else {
                 const error = await response.json();
-                this.showError(error.error || 'Failed to update todo');
+                this.showError(error.detail || 'Failed to update todo');
             }
         } catch (error) {
             console.error('Error updating todo:', error);
@@ -112,22 +120,23 @@ class TodoApp {
         }
     }
 
-    async deleteTodo(todoId) {
+    async deleteTodo(id) {
         if (!confirm('Are you sure you want to delete this todo?')) {
             return;
         }
 
         try {
-            const response = await fetch(`/api/todos/${todoId}`, {
+            const response = await fetch(`/api/todos/${id}`, {
                 method: 'DELETE'
             });
 
             if (response.ok) {
-                this.loadTodos();
-                this.showSuccess('Todo deleted successfully');
+                this.todos = this.todos.filter(t => t.id !== id);
+                this.renderTodos();
+                this.showSuccess('Todo deleted successfully!');
             } else {
                 const error = await response.json();
-                this.showError(error.error || 'Failed to delete todo');
+                this.showError(error.detail || 'Failed to delete todo');
             }
         } catch (error) {
             console.error('Error deleting todo:', error);
@@ -135,45 +144,26 @@ class TodoApp {
         }
     }
 
-    editTodo(todo) {
-        document.getElementById('editTodoId').value = todo.id;
-        document.getElementById('editTodoTitle').value = todo.title;
-        document.getElementById('editTodoDescription').value = todo.description || '';
-        document.getElementById('editTodoPriority').value = todo.priority;
-        this.editModal.show();
-    }
-
-    async saveEdit() {
-        const id = document.getElementById('editTodoId').value;
-        const title = document.getElementById('editTodoTitle').value.trim();
-        const description = document.getElementById('editTodoDescription').value.trim();
-        const priority = document.getElementById('editTodoPriority').value;
-
-        if (!title) {
-            this.showError('Title is required');
-            return;
-        }
-
+    async toggleComplete(id, completed) {
         try {
-            const response = await fetch(`/api/todos/${id}`, {
-                method: 'PUT',
+            const response = await fetch(`/api/todos/${id}/complete`, {
+                method: 'PATCH',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    title,
-                    description,
-                    priority
-                })
+                body: JSON.stringify({ completed: completed })
             });
 
             if (response.ok) {
-                this.editModal.hide();
-                this.loadTodos();
-                this.showSuccess('Todo updated successfully');
+                const updatedTodo = await response.json();
+                const index = this.todos.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    this.todos[index] = updatedTodo;
+                    this.renderTodos();
+                }
             } else {
                 const error = await response.json();
-                this.showError(error.error || 'Failed to update todo');
+                this.showError(error.detail || 'Failed to update todo');
             }
         } catch (error) {
             console.error('Error updating todo:', error);
@@ -181,77 +171,81 @@ class TodoApp {
         }
     }
 
-    setFilter(filter) {
-        this.currentFilter = filter;
+    filterTodos(filter) {
+        const todoItems = document.querySelectorAll('.todo-item');
         
-        // Update button states
-        document.querySelectorAll('[data-filter]').forEach(btn => {
-            btn.classList.remove('active');
+        todoItems.forEach(item => {
+            const isCompleted = item.classList.contains('completed');
+            
+            switch(filter) {
+                case 'all':
+                    item.style.display = 'block';
+                    break;
+                case 'active':
+                    item.style.display = isCompleted ? 'none' : 'block';
+                    break;
+                case 'completed':
+                    item.style.display = isCompleted ? 'block' : 'none';
+                    break;
+            }
         });
-        document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
-        
-        this.loadTodos();
     }
 
-    renderTodos(todos) {
+    renderTodos() {
         const container = document.getElementById('todoList');
-        const emptyState = document.getElementById('emptyState');
+        if (!container) return;
 
-        if (todos.length === 0) {
-            container.innerHTML = '';
-            emptyState.style.display = 'block';
+        if (this.todos.length === 0) {
+            container.innerHTML = '<p class="no-todos">No todos yet. Add one above!</p>';
             return;
         }
 
-        emptyState.style.display = 'none';
-        
-        const html = todos.map(todo => this.renderTodoItem(todo)).join('');
+        const html = this.todos.map(todo => `
+            <div class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
+                <div class="todo-content">
+                    <div class="todo-header">
+                        <input type="checkbox" 
+                               class="todo-checkbox" 
+                               ${todo.completed ? 'checked' : ''}
+                               onchange="todoApp.toggleComplete(${todo.id}, this.checked)">
+                        <h3 class="todo-title">${this.escapeHtml(todo.title)}</h3>
+                        <span class="todo-priority priority-${todo.priority}">${todo.priority}</span>
+                    </div>
+                    ${todo.description ? `<p class="todo-description">${this.escapeHtml(todo.description)}</p>` : ''}
+                    <div class="todo-meta">
+                        <small class="todo-date">Created: ${new Date(todo.created_at).toLocaleString()}</small>
+                    </div>
+                </div>
+                <div class="todo-actions">
+                    <button class="btn btn-sm btn-edit" onclick="todoApp.editTodo(${todo.id})">Edit</button>
+                    <button class="btn btn-sm btn-delete" onclick="todoApp.deleteTodo(${todo.id})">Delete</button>
+                </div>
+            </div>
+        `).join('');
+
         container.innerHTML = html;
     }
 
-    renderTodoItem(todo) {
-        const priorityColors = {
-            low: 'success',
-            medium: 'warning', 
-            high: 'danger'
-        };
+    editTodo(id) {
+        const todo = this.todos.find(t => t.id === id);
+        if (!todo) return;
 
-        const priorityColor = priorityColors[todo.priority] || 'secondary';
-        const completedClass = todo.completed ? 'text-decoration-line-through text-muted' : '';
-        const createdAt = new Date(todo.created_at).toLocaleString();
+        const newTitle = prompt('Edit title:', todo.title);
+        if (newTitle === null) return;
 
-        return `
-            <div class="card mb-2 ${todo.completed ? 'border-success' : ''}">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div class="flex-grow-1">
-                            <div class="d-flex align-items-center mb-2">
-                                <input type="checkbox" class="form-check-input me-2" 
-                                       ${todo.completed ? 'checked' : ''} 
-                                       onchange="todoApp.toggleComplete(${todo.id}, this.checked)">
-                                <h6 class="mb-0 ${completedClass}">${this.escapeHtml(todo.title)}</h6>
-                                <span class="badge bg-${priorityColor} ms-2">${todo.priority}</span>
-                            </div>
-                            ${todo.description ? `<p class="mb-1 small ${completedClass}">${this.escapeHtml(todo.description)}</p>` : ''}
-                            <small class="text-muted">
-                                <i class="fas fa-clock me-1"></i>
-                                Created: ${createdAt}
-                            </small>
-                        </div>
-                        <div class="ms-3">
-                            <button class="btn btn-sm btn-outline-primary me-1" 
-                                    onclick="todoApp.editTodo(${JSON.stringify(todo).replace(/"/g, '&quot;')})">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" 
-                                    onclick="todoApp.deleteTodo(${todo.id})">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        const newDescription = prompt('Edit description:', todo.description || '');
+        if (newDescription === null) return;
+
+        const newPriority = prompt('Edit priority (low/medium/high):', todo.priority);
+        if (newPriority === null) return;
+
+        if (newTitle.trim()) {
+            this.updateTodo(id, {
+                title: newTitle.trim(),
+                description: newDescription.trim(),
+                priority: ['low', 'medium', 'high'].includes(newPriority) ? newPriority : 'medium'
+            });
+        }
     }
 
     escapeHtml(text) {
@@ -261,35 +255,38 @@ class TodoApp {
     }
 
     showSuccess(message) {
-        this.showAlert(message, 'success');
+        this.showMessage(message, 'success');
     }
 
     showError(message) {
-        this.showAlert(message, 'danger');
+        this.showMessage(message, 'error');
     }
 
-    showAlert(message, type) {
-        const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        
-        const container = document.querySelector('.container');
-        container.insertAdjacentHTML('afterbegin', alertHtml);
-        
+    showMessage(message, type) {
+        // Remove existing messages
+        const existing = document.querySelector('.message');
+        if (existing) {
+            existing.remove();
+        }
+
+        // Create new message
+        const messageEl = document.createElement('div');
+        messageEl.className = `message message-${type}`;
+        messageEl.textContent = message;
+
+        // Insert at top of page
+        document.body.insertBefore(messageEl, document.body.firstChild);
+
         // Auto-remove after 3 seconds
         setTimeout(() => {
-            const alert = container.querySelector('.alert');
-            if (alert) {
-                alert.remove();
+            if (messageEl.parentNode) {
+                messageEl.remove();
             }
         }, 3000);
     }
 }
 
-// Initialize the app when DOM is loaded
+// Initialize the todo app when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.todoApp = new TodoApp();
 });

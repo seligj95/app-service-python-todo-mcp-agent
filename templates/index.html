@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Todo List</h1>
+            <p>Simple todo management application</p>
+        </div>
+
+        <!-- Add Todo Section -->
+        <div class="add-todo-section">
+            <h2>Add New Todo</h2>
+            <form id="addTodoForm">
+                <div class="form-group">
+                    <label for="todoTitle">Title *</label>
+                    <input type="text" id="todoTitle" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="todoDescription">Description</label>
+                    <textarea id="todoDescription" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="todoPriority">Priority</label>
+                    <select id="todoPriority" class="form-control">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Todo</button>
+            </form>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="active">Active</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
+        </div>
+
+        <!-- Todo List Section -->
+        <div class="todo-list-section">
+            <h2>Your Todos</h2>
+            <div id="todoList">
+                <p class="no-todos">Loading todos...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/todo.js"></script>
+</body>
+</html>

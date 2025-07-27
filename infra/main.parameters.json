@@ -10,9 +10,6 @@
     },
     "secretKey": {
       "value": "${SECRET_KEY}"
-    },
-    "databaseUrl": {
-      "value": "${DATABASE_URL}"
     }
   }
 }

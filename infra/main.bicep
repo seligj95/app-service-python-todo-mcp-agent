@@ -10,9 +10,6 @@ param location string = resourceGroup().location
 @secure()
 param secretKey string = ''
 
-@description('Database URL for the application')
-param databaseUrl string = ''
-
 // Generate unique resource token
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location, environmentName)
 
@@ -61,16 +58,18 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
     reserved: true
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'PYTHON|3.12'
-      appCommandLine: 'gunicorn --bind=0.0.0.0 --timeout 600 --access-logfile \'-\' --error-logfile \'-\' main:app'
+      linuxFxVersion: 'PYTHON|3.11'
+      alwaysOn: true
+      ftpsState: 'FtpsOnly'
+      appCommandLine: 'python -m uvicorn main:app --host 0.0.0.0 --port 8000'
       appSettings: [
         {
           name: 'SECRET_KEY'
           value: secretKey
         }
         {
-          name: 'DATABASE_URL'
-          value: databaseUrl
+          name: 'WEBSITES_PORT'
+          value: '8000'
         }
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
@@ -80,12 +79,15 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
           name: 'ENABLE_ORYX_BUILD'
           value: 'true'
         }
+        {
+          name: 'PYTHONPATH'
+          value: '/home/site/wwwroot'
+        }
       ]
       cors: {
         allowedOrigins: ['*']
         supportCredentials: false
       }
-      alwaysOn: false
       healthCheckPath: '/health'
     }
   }
@@ -94,6 +96,8 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
 // Outputs
 output RESOURCE_GROUP_ID string = resourceGroup().id
 output AZURE_LOCATION string = location
+output AZURE_TENANT_ID string = tenant().tenantId
+output AZURE_RESOURCE_GROUP string = resourceGroup().name
+output SERVICE_WEB_NAME string = appService.name
+output SERVICE_WEB_URI string = 'https://${appService.properties.defaultHostName}'
 output SERVICE_TODO_APP_IDENTITY_PRINCIPAL_ID string = appService.identity.principalId
-output SERVICE_TODO_APP_NAME string = appService.name
-output SERVICE_TODO_APP_URI string = 'https://${appService.properties.defaultHostName}'
