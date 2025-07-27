@@ -1,0 +1,11 @@
+name: python-todo-mcp-agent
+metadata:
+  template: python-webapp@0.0.1-beta
+infra:
+  provider: bicep
+  path: infra
+services:
+  todo-app:
+    project: src
+    host: appservice
+    language: python
