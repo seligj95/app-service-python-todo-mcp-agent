@@ -196,11 +196,11 @@ def create_app():
                                     "properties": {
                                         "title": {
                                             "type": "string",
-                                            "description": "Title of the todo item"
+                                            "description": "Title of the todo"
                                         },
                                         "description": {
                                             "type": "string",
-                                            "description": "Optional description"
+                                            "description": "Optional desc"
                                         },
                                         "priority": {
                                             "type": "string",
@@ -219,7 +219,7 @@ def create_app():
                                     "properties": {
                                         "filter_completed": {
                                             "type": "boolean",
-                                            "description": "Filter by completion status"
+                                            "description": "Filter by status"
                                         }
                                     }
                                 }
@@ -232,7 +232,7 @@ def create_app():
                                     "properties": {
                                         "todo_id": {
                                             "type": "integer",
-                                            "description": "ID of the todo to update"
+                                            "description": "Todo ID to update"
                                         },
                                         "title": {
                                             "type": "string",
@@ -263,7 +263,7 @@ def create_app():
                                     "properties": {
                                         "todo_id": {
                                             "type": "integer",
-                                            "description": "ID of the todo to delete"
+                                            "description": "Todo ID to delete"
                                         }
                                     },
                                     "required": ["todo_id"]
@@ -277,7 +277,7 @@ def create_app():
                                     "properties": {
                                         "todo_id": {
                                             "type": "integer",
-                                            "description": "ID of the todo to mark"
+                                            "description": "Todo ID to mark"
                                         },
                                         "completed": {
                                             "type": "boolean",
@@ -437,13 +437,13 @@ def create_app():
                     "method": "POST"
                 },
                 {
-                    "name": "list_todos", 
+                    "name": "list_todos",
                     "endpoint": "/mcp/tools/list_todos",
                     "method": "GET|POST"
                 },
                 {
                     "name": "update_todo",
-                    "endpoint": "/mcp/tools/update_todo", 
+                    "endpoint": "/mcp/tools/update_todo",
                     "method": "POST"
                 },
                 {
