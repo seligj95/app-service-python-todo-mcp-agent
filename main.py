@@ -1,5 +1,5 @@
 """
-Todo MCP Server with FastAPI - Azure Ready
+Todo MCP Server with FastAPI and Azure AI Foundry Chat - Azure Ready
 """
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,10 +7,24 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
+import os
+import uuid
+import json
+import asyncio
+
+# Azure AI imports (will be imported only when needed to avoid startup issues)
+try:
+    from azure.ai.projects import AIProjectClient
+    from azure.ai.agents.models import MessageTextContent, ListSortOrder, McpTool
+    from azure.identity import DefaultAzureCredential
+    AZURE_AI_AVAILABLE = True
+except ImportError:
+    AZURE_AI_AVAILABLE = False
+    logging.warning("Azure AI packages not available. Chat functionality will be disabled.")
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,12 +50,184 @@ class Todo(BaseModel):
     priority: str = "medium"
     created_at: Optional[str] = None
 
-# Simple in-memory storage for todos
+class ChatMessage(BaseModel):
+    message: str
+    session_id: str
+
+class ChatSession(BaseModel):
+    session_id: str
+    thread_id: Optional[str] = None
+    agent_id: Optional[str] = None
+
+# Simple in-memory storage for todos and chat sessions
 todos_storage: Dict[int, Todo] = {}
 next_id = 1
+chat_sessions: Dict[str, ChatSession] = {}
 
 def get_current_time() -> str:
     return datetime.now().isoformat()
+
+# Azure AI Foundry Chat Service
+class AzureAIFoundryService:
+    def __init__(self):
+        self.project_client = None
+        self.mcp_server_url = None
+        self.initialized = False
+        
+    async def initialize(self):
+        """Initialize Azure AI Foundry connection"""
+        if not AZURE_AI_AVAILABLE:
+            logger.warning("Azure AI packages not available")
+            return False
+            
+        try:
+            # Get configuration from environment
+            project_endpoint = os.getenv('AZURE_AI_PROJECT_ENDPOINT')
+            model_deployment_name = os.getenv('AZURE_AI_MODEL_DEPLOYMENT_NAME', 'gpt-4-1106-preview')
+            app_service_url = os.getenv('AZURE_APP_SERVICE_URL', 'http://localhost:8000')
+            
+            if not project_endpoint:
+                logger.warning("AZURE_AI_PROJECT_ENDPOINT not configured")
+                return False
+            
+            # Initialize Azure AI Project Client with managed identity
+            credential = DefaultAzureCredential()
+            self.project_client = AIProjectClient(
+                endpoint=project_endpoint,
+                credential=credential
+            )
+            
+            # Set MCP server URL to point to our own app
+            self.mcp_server_url = f"{app_service_url}/mcp/stream"
+            self.model_deployment_name = model_deployment_name
+            
+            logger.info(f"Azure AI Foundry initialized with endpoint: {project_endpoint}")
+            logger.info(f"MCP Server URL: {self.mcp_server_url}")
+            
+            self.initialized = True
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Azure AI Foundry: {e}")
+            return False
+    
+    async def create_agent(self) -> Optional[str]:
+        """Create an Azure AI Foundry agent with MCP tools"""
+        if not self.initialized or not self.project_client:
+            return None
+            
+        try:
+            # Create MCP tool configuration
+            mcp_tool = McpTool(
+                server_label="todo-mcp-server",
+                server_url=self.mcp_server_url,
+                allowed_tools=[]  # Allow all tools
+            )
+            
+            # Create agent
+            agent = self.project_client.agents.create_agent(
+                model=self.model_deployment_name,
+                name="todo-mcp-agent",
+                instructions=(
+                    "You are a helpful AI assistant that manages todo items. "
+                    "Use the provided MCP tools to help users create, read, update, and delete todos. "
+                    "Be conversational and helpful. When users ask about todos, use the appropriate tools "
+                    "to perform the requested actions. Always confirm what actions you've taken."
+                ),
+                tools=mcp_tool.definitions
+            )
+            
+            logger.info(f"Created agent with ID: {agent.id}")
+            return agent.id
+            
+        except Exception as e:
+            logger.error(f"Failed to create agent: {e}")
+            return None
+    
+    async def create_thread(self) -> Optional[str]:
+        """Create a new conversation thread"""
+        if not self.initialized or not self.project_client:
+            return None
+            
+        try:
+            thread = self.project_client.agents.threads.create()
+            logger.info(f"Created thread with ID: {thread.id}")
+            return thread.id
+            
+        except Exception as e:
+            logger.error(f"Failed to create thread: {e}")
+            return None
+    
+    async def send_message(self, thread_id: str, agent_id: str, message: str) -> Dict[str, Any]:
+        """Send a message and get response from the agent"""
+        if not self.initialized or not self.project_client:
+            return {"error": "Azure AI Foundry not initialized"}
+            
+        try:
+            # Create message
+            message_obj = self.project_client.agents.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=message
+            )
+            
+            # Create and run
+            run = self.project_client.agents.runs.create(
+                thread_id=thread_id,
+                agent_id=agent_id
+            )
+            
+            # Wait for completion and handle tool approvals
+            tool_calls = []
+            while run.status in ["queued", "in_progress", "requires_action"]:
+                await asyncio.sleep(1)
+                run = self.project_client.agents.runs.get(thread_id=thread_id, run_id=run.id)
+                
+                if run.status == "requires_action":
+                    # Auto-approve all tool calls for now
+                    if hasattr(run.required_action, 'submit_tool_approval'):
+                        tool_approvals = []
+                        for tool_call in run.required_action.submit_tool_approval.tool_calls:
+                            tool_calls.append({
+                                "tool_name": tool_call.function.name if hasattr(tool_call, 'function') else "unknown",
+                                "description": f"Tool call: {tool_call.id}"
+                            })
+                            tool_approvals.append({
+                                "tool_call_id": tool_call.id,
+                                "approve": True
+                            })
+                        
+                        if tool_approvals:
+                            self.project_client.agents.runs.submit_tool_outputs(
+                                thread_id=thread_id,
+                                run_id=run.id,
+                                tool_approvals=tool_approvals
+                            )
+            
+            # Get the response
+            messages = self.project_client.agents.messages.list(
+                thread_id=thread_id,
+                order=ListSortOrder.DESC,
+                limit=1
+            )
+            
+            if messages and messages.data:
+                latest_message = messages.data[0]
+                if latest_message.role == "assistant" and latest_message.text_messages:
+                    response_text = latest_message.text_messages[0].text.value
+                    return {
+                        "response": response_text,
+                        "tool_calls": tool_calls
+                    }
+            
+            return {"response": "I'm sorry, I couldn't process your request.", "tool_calls": []}
+            
+        except Exception as e:
+            logger.error(f"Failed to send message: {e}")
+            return {"error": f"Failed to process message: {str(e)}"}
+
+# Initialize Azure AI Foundry service
+ai_foundry_service = AzureAIFoundryService()
 
 # MCP Server Class
 class MCPServer:
@@ -371,14 +557,18 @@ templates = Jinja2Templates(directory="templates")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Todo MCP FastAPI Server")
+    logger.info("Starting Todo MCP FastAPI Server with Azure AI Foundry Chat")
+    
+    # Initialize Azure AI Foundry
+    await ai_foundry_service.initialize()
+    
     yield
     logger.info("Shutting down Todo MCP FastAPI Server")
 
 # Create FastAPI app
 app = FastAPI(
-    title="Todo MCP Server",
-    description="Model Context Protocol server for todo management",
+    title="Todo MCP Server with Azure AI Foundry Chat",
+    description="Model Context Protocol server for todo management with AI chat integration",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -400,10 +590,20 @@ async def root(request: Request):
     """Serve the main todo list page"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/chat", response_class=HTMLResponse)
+async def chat_page(request: Request):
+    """Serve the chat interface page"""
+    return templates.TemplateResponse("chat.html", {"request": request})
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
-    return {"status": "healthy", "todos_count": len(todos_storage)}
+    return {
+        "status": "healthy", 
+        "todos_count": len(todos_storage),
+        "azure_ai_available": AZURE_AI_AVAILABLE,
+        "ai_foundry_initialized": ai_foundry_service.initialized
+    }
 
 @app.get("/tools")
 async def list_tools():
@@ -503,6 +703,67 @@ async def delete_todo_api(todo_id: int):
     
     deleted_todo = todos_storage.pop(todo_id)
     return {"message": "Todo deleted successfully", "deleted_todo": deleted_todo.dict()}
+
+# Chat API endpoints
+@app.post("/api/chat/session")
+async def create_chat_session():
+    """Create a new chat session"""
+    if not ai_foundry_service.initialized:
+        raise HTTPException(status_code=503, detail="Azure AI Foundry service not available")
+    
+    try:
+        session_id = str(uuid.uuid4())
+        
+        # Create agent and thread
+        agent_id = await ai_foundry_service.create_agent()
+        thread_id = await ai_foundry_service.create_thread()
+        
+        if not agent_id or not thread_id:
+            raise HTTPException(status_code=500, detail="Failed to create chat session")
+        
+        # Store session
+        chat_sessions[session_id] = ChatSession(
+            session_id=session_id,
+            thread_id=thread_id,
+            agent_id=agent_id
+        )
+        
+        return {"session_id": session_id}
+        
+    except Exception as e:
+        logger.error(f"Failed to create chat session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create chat session")
+
+@app.post("/api/chat/message")
+async def send_chat_message(chat_data: ChatMessage):
+    """Send a message to the AI agent"""
+    if not ai_foundry_service.initialized:
+        raise HTTPException(status_code=503, detail="Azure AI Foundry service not available")
+    
+    session_id = chat_data.session_id
+    message = chat_data.message
+    
+    if session_id not in chat_sessions:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    session = chat_sessions[session_id]
+    
+    try:
+        # Send message to Azure AI Foundry
+        result = await ai_foundry_service.send_message(
+            thread_id=session.thread_id,
+            agent_id=session.agent_id,
+            message=message
+        )
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to send chat message: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process chat message")
 
 # MCP Streamable HTTP Endpoints
 @app.get("/mcp/stream")

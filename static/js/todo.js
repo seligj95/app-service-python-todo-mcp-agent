@@ -176,17 +176,25 @@ class TodoApp {
         
         todoItems.forEach(item => {
             const isCompleted = item.classList.contains('completed');
+            let shouldShow = false;
             
             switch(filter) {
                 case 'all':
-                    item.style.display = 'block';
+                    shouldShow = true;
                     break;
                 case 'active':
-                    item.style.display = isCompleted ? 'none' : 'block';
+                    shouldShow = !isCompleted;
                     break;
                 case 'completed':
-                    item.style.display = isCompleted ? 'block' : 'none';
+                    shouldShow = isCompleted;
                     break;
+            }
+            
+            // Use CSS class instead of inline styles to maintain layout consistency
+            if (shouldShow) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
             }
         });
     }
@@ -274,15 +282,23 @@ class TodoApp {
         messageEl.className = `message message-${type}`;
         messageEl.textContent = message;
 
-        // Insert at top of page
-        document.body.insertBefore(messageEl, document.body.firstChild);
+        // Insert after the navigation tabs but before the main content
+        const navTabs = document.querySelector('.navigation-tabs');
+        const container = document.querySelector('.container');
+        
+        if (navTabs && navTabs.nextElementSibling) {
+            container.insertBefore(messageEl, navTabs.nextElementSibling);
+        } else {
+            // Fallback: insert at the beginning of container
+            container.insertBefore(messageEl, container.firstChild);
+        }
 
-        // Auto-remove after 3 seconds
+        // Auto-remove after 4 seconds
         setTimeout(() => {
             if (messageEl.parentNode) {
                 messageEl.remove();
             }
-        }, 3000);
+        }, 4000);
     }
 }
 
