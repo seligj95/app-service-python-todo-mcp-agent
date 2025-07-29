@@ -41,23 +41,25 @@ except ImportError as e:
 def get_azure_ai_project_endpoint():
     """Get Azure AI Project endpoint from environment variables"""
     azure_ai_endpoint = os.getenv('AZURE_AI_PROJECT_ENDPOINT')
+    azure_ai_project_name = os.getenv('AZURE_AI_PROJECT_NAME')
+    
     if not azure_ai_endpoint:
         raise ValueError("AZURE_AI_PROJECT_ENDPOINT environment variable is required")
+    if not azure_ai_project_name:
+        raise ValueError("AZURE_AI_PROJECT_NAME environment variable is required")
     
-    # Azure AI Foundry endpoint should be a direct URL
-    if azure_ai_endpoint.startswith('https://'):
+    # Extract the AI Foundry resource name from the endpoint
+    # Format: https://az-tda-foundry-wgznky2irncfe.cognitiveservices.azure.com/
+    if azure_ai_endpoint.startswith('https://') and 'cognitiveservices.azure.com' in azure_ai_endpoint:
+        # Extract resource name from URL
+        resource_name = azure_ai_endpoint.replace('https://', '').replace('.cognitiveservices.azure.com/', '').replace('.cognitiveservices.azure.com', '')
+        # Format for Azure AI Agents: https://<resource-name>.services.ai.azure.com/api/projects/<project-name>
+        agents_endpoint = f"https://{resource_name}.services.ai.azure.com/api/projects/{azure_ai_project_name}"
+        return agents_endpoint
+    
+    # If already in correct format, return as-is
+    if '/api/projects/' in azure_ai_endpoint:
         return azure_ai_endpoint
-    
-    # Handle legacy Azure ML format if still present
-    if ';' in azure_ai_endpoint:
-        # Format: "westus.api.azureml.ms;subscription;resourcegroup;projectname"
-        parts = azure_ai_endpoint.split(';')
-        if len(parts) >= 4:
-            # Extract region from "westus.api.azureml.ms"
-            region = parts[0].split('.')[0]
-            project_name = parts[3]
-            return (f"https://{region}.api.azureml.ms/api/projects/"
-                    f"{project_name}")
     
     raise ValueError(f"Invalid AZURE_AI_PROJECT_ENDPOINT format: {azure_ai_endpoint}")
 

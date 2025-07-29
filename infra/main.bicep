@@ -179,22 +179,12 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
-// Grant App Service access to Azure AI Foundry
-resource appServiceAIFoundryRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, appService.id, aiFoundryResource.id, 'CognitiveServicesOpenAIUser')
+// Grant App Service Azure AI Project Manager role on AI Foundry resource (includes dataActions for Microsoft.CognitiveServices/*)
+resource appServiceAIProjectManagerRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(subscription().id, appService.id, aiFoundryResource.id, 'Azure AI Project Manager')
   scope: aiFoundryResource
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd') // Cognitive Services OpenAI User
-    principalId: appService.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Grant App Service Azure AI Developer role (required for Agents)
-resource appServiceAIDeveloperRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().id, appService.id, 'AzureAIDeveloper')
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '64702f94-c441-49e6-a78b-ef80e0188fee') // Azure AI Developer
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'eadc314b-1a2d-4efa-be10-5d325db5065e') // Azure AI Project Manager
     principalId: appService.identity.principalId
     principalType: 'ServicePrincipal'
   }
