@@ -1,173 +1,135 @@
-# Python Todo List App with MCP Integration
+# Todo MCP Agent with Azure AI
 
-A Flask-based todo list application that exposes operations as MCP (Model Context Protocol) tools over HTTP and can be deployed to Azure App Service.
+A FastAPI-based todo list application with Azure AI Agents integration and Model Context Protocol (MCP) server functionality.
 
 ## Features
 
-- ✅ **CRUD Operations**: Create, read, update, delete todos
-- 🎯 **Priority Management**: Set priority levels (low, medium, high)
-- ✅ **Mark Complete/Incomplete**: Toggle completion status
-- 🌐 **Web Interface**: Clean, responsive Bootstrap UI
-- 💬 **Chat Interface**: Placeholder for future LLM integration
-- 🔧 **MCP Tools**: HTTP-accessible tools for external integrations
-- ☁️ **Azure Ready**: Optimized for Azure App Service deployment
+- 🤖 **AI-Powered Chat**: Azure AI Agents with GPT-4o for natural language todo management
+- 🔧 **MCP Integration**: Model Context Protocol server for AI tool access
+- ✅ **Todo Management**: Full CRUD operations with priority levels
+- 🌐 **Web Interface**: Clean, responsive UI with chat functionality
+- ☁️ **Azure Deployment**: Ready for Azure App Service with AI Foundry
 
-## MCP Tools Available
-
-The application exposes the following MCP tools over HTTP:
-
-- `create_todo(title, description, priority)` - Create a new todo item
-- `list_todos(filter_completed)` - Get all todos with optional filtering
-- `update_todo(id, title, description, priority, completed)` - Update existing todo
-- `delete_todo(id)` - Delete a todo item
-- `mark_todo_complete(id, completed)` - Mark todo as complete/incomplete
-
-## Local Development
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.12+
-- Virtual environment (venv)
+- Python 3.11+
+- Azure subscription (for AI features)
+- Azure Developer CLI (azd)
 
-### Setup
+### Local Development
 
-1. **Clone and setup environment**:
+1. **Clone and setup**:
    ```bash
-   git clone <repository-url>
+   git clone <your-repo-url>
    cd python-todo-mcp-agent
    python -m venv .venv
    .venv\Scripts\activate  # Windows
-   # or
-   source .venv/bin/activate  # Linux/Mac
-   ```
-
-2. **Install dependencies**:
-   ```bash
    pip install -r requirements.txt
    ```
 
-3. **Set environment variables** (optional):
-   ```bash
-   set SECRET_KEY=your-secret-key-here
-   set DATABASE_URL=sqlite:///todos.db
-   ```
-
-4. **Run the application**:
+2. **Run locally**:
    ```bash
    python main.py
    ```
 
-5. **Access the application**:
-   - Web Interface: http://localhost:8000
-   - Chat Interface: http://localhost:8000/chat
+3. **Access the app**:
+   - Todo List: http://localhost:8000
+   - AI Chat: http://localhost:8000/chat
    - Health Check: http://localhost:8000/health
-   - MCP Endpoint: http://localhost:8000/mcp
-   - MCP Tools: http://localhost:8000/mcp/tools/*
 
-## Azure Deployment
+### Azure Deployment
 
-### Prerequisites
+Deploy with one command:
 
-- Azure CLI installed and logged in
-- Azure Developer CLI (azd) installed
+```bash
+azd up
+```
 
-### Deploy with AZD
+This creates:
+- Azure AI Foundry resource with GPT-4o
+- Azure AI Foundry project
+- App Service with managed identity
+- All necessary role assignments
 
-1. **Initialize AZD**:
-   ```bash
-   azd init
-   ```
+## How It Works
 
-2. **Set environment variables**:
-   ```bash
-   azd env set SECRET_KEY "your-production-secret-key"
-   azd env set DATABASE_URL "sqlite:///todos.db"
-   ```
+The application combines three key components:
 
-3. **Deploy to Azure**:
-   ```bash
-   azd up
-   ```
+1. **Todo Management**: Standard CRUD operations for managing tasks
+2. **MCP Server**: Exposes todo operations as tools that AI agents can use
+3. **AI Chat Interface**: Azure AI Agents that can interact with your todos through natural language
 
-### Infrastructure
+### Example Chat Interactions
 
-The deployment creates:
-
-- **App Service Plan**: P0V3 (Premium V3, Linux)
-- **App Service**: Python 3.12 runtime
-- **Managed Identity**: Secure Azure resource access
+- "Create a high priority todo to finish the project"
+- "Show me all my incomplete todos"
+- "Mark the project todo as complete"
+- "What todos do I have for today?"
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Web Browser   │────│   Flask App      │────│   SQLite DB     │
-│   (Todo UI)     │    │   (CRUD API)     │    │   (Data Store)  │
+│   Chat UI       │────│   FastAPI App    │────│   In-Memory     │
+│   (AI Agent)    │    │   + MCP Server   │    │   Todo Store    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │
                        ┌──────────────────┐
-                       │   MCP Server     │
-                       │   (HTTP Tools)   │
-                       └──────────────────┘
-                                │
-                       ┌──────────────────┐
-                       │  External Tools  │
-                       │  & Integrations  │
+                       │   Azure AI       │
+                       │   Foundry +      │
+                       │   GPT-4o         │
                        └──────────────────┘
 ```
 
+## MCP Tools
+
+The application exposes these tools for AI agents:
+
+- `create_todo` - Create new todos
+- `list_todos` - List all or filtered todos  
+- `update_todo` - Update existing todos
+- `delete_todo` - Delete todos
+- `mark_todo_complete` - Toggle completion status
+
 ## API Endpoints
 
+### Web Interface
+- `GET /` - Todo list page
+- `GET /chat` - AI chat interface
+- `GET /health` - Health check
+
 ### REST API
-- `GET /api/todos` - List all todos
-- `POST /api/todos` - Create new todo
-- `GET /api/todos/{id}` - Get specific todo
+- `GET /api/todos` - List todos
+- `POST /api/todos` - Create todo
 - `PUT /api/todos/{id}` - Update todo
 - `DELETE /api/todos/{id}` - Delete todo
-- `PATCH /api/todos/{id}/complete` - Toggle completion
 
-### MCP Integration
-- `GET /mcp` - MCP server info and available tools
-- `POST /mcp` - MCP protocol endpoint (JSON-RPC 2.0)
-- `GET/POST /mcp/tools/create_todo` - Direct tool access
-- `GET/POST /mcp/tools/list_todos` - Direct tool access
-- `POST /mcp/tools/update_todo` - Direct tool access
-- `POST /mcp/tools/delete_todo` - Direct tool access
-- `POST /mcp/tools/mark_todo_complete` - Direct tool access
+### AI Chat API
+- `POST /api/chat/session` - Create chat session
+- `POST /api/chat/message` - Send message to AI agent
 
-## Environment Variables
+### MCP Server
+- `GET /mcp/stream` - MCP server info
+- `POST /mcp/stream` - MCP JSON-RPC endpoint
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SECRET_KEY` | Flask secret key for sessions | `dev-secret-key` |
-| `DATABASE_URL` | Database connection string | `sqlite:///todos.db` |
+## Configuration
 
-## Development Notes
+Environment variables are automatically configured during Azure deployment:
 
-- **Database**: Uses SQLite for simplicity (can be upgraded to Azure SQL)
-- **Styling**: Bootstrap 5 with Font Awesome icons
-- **Frontend**: Vanilla JavaScript with fetch API
-- **Backend**: Flask with SQLAlchemy ORM
-- **MCP**: Native JSON-RPC 2.0 implementation in Flask
-- **Security**: HTTPS only, managed identity, CORS enabled
+- `AZURE_AI_PROJECT_ENDPOINT` - AI Foundry endpoint
+- `AZURE_OPENAI_DEPLOYMENT_NAME` - GPT-4o deployment name
+- `AZURE_APP_SERVICE_URL` - App service URL for MCP
 
-## Future Enhancements
+## Development
 
-- 🤖 **LLM Integration**: Connect chat interface to language models
-- 🗄️ **Database Upgrade**: Migrate to Azure SQL Database
-- 🔐 **Authentication**: Add user accounts and auth
-- 📱 **Mobile App**: React Native or Flutter companion
-- 🔍 **Search**: Full-text search capabilities
-- 📊 **Analytics**: Usage metrics and insights
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+The app uses:
+- **FastAPI** for the web framework
+- **Azure AI Agents** for AI functionality
+- **Bootstrap 5** for UI styling
+- **In-memory storage** for simplicity (easily upgradeable)
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License

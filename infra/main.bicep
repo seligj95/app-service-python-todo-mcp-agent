@@ -162,6 +162,10 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
           value: aiFoundryResource.properties.endpoint
         }
         {
+          name: 'AZURE_AI_PROJECT_NAME'
+          value: aiFoundryProject.name
+        }
+        {
           name: 'AZURE_APP_SERVICE_URL'
           value: 'https://${appServiceName}.azurewebsites.net'
         }
@@ -208,4 +212,5 @@ output AZURE_OPENAI_ENDPOINT string = aiFoundryResource.properties.endpoint
 output AZURE_OPENAI_NAME string = aiFoundryResource.name
 output AZURE_AI_PROJECT_ENDPOINT string = aiFoundryResource.properties.endpoint
 output AZURE_AI_FOUNDRY_RESOURCE_NAME string = aiFoundryResource.name
+output AZURE_AI_PROJECT_NAME string = aiFoundryProject.name
 output AZURE_OPENAI_DEPLOYMENT_NAME string = gpt4oDeployment.name
