@@ -1,18 +1,11 @@
 """
-Todo MCP Server with FastAPI and Azure AI Agents - Simplified and Working
+To-do MCP Server with FastAPI and Azure AI Agents - Simplified and Working
 """
 import os
-import sys
 import logging
 import traceback
 from datetime import datetime
-from typing import Dict, List, Option            # Default instructions for MCP-enabled agent
-            instructions = """
-            You are a helpful agent with access to to-do management tools via MCP.
-            You can help users create, list, update, and delete to-do items using the available MCP tools.
-            When users ask about to-dos, use the MCP tools to perform the requested actions.
-            Always be helpful and provide clear feedback about what actions you've taken.
-            """
+from typing import Dict, Optional
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -34,7 +27,7 @@ logger = logging.getLogger(__name__)
 try:
     from azure.identity import DefaultAzureCredential
     from azure.ai.agents import AgentsClient
-    from azure.ai.agents.models import McpTool, RunStatus
+    from azure.ai.agents.models import McpTool
     AZURE_AI_AVAILABLE = True
     logger.info("✓ Azure AI packages imported successfully")
 except ImportError as e:
@@ -126,7 +119,6 @@ def generate_session_id() -> str:
     return str(uuid.uuid4())
 
 class AzureAIAgentService:
-    """Simplified Azure AI Agent Service using the working pattern from new-script.py"""
     
     def __init__(self):
         self.agents_client = None
