@@ -399,10 +399,10 @@ select.form-control {
 
 .chat-messages .message.user-message {
     margin-left: auto;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #3498db;
     color: white;
     border-radius: 20px 20px 6px 20px;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
 }
 
 .chat-messages .message.assistant-message {
@@ -489,7 +489,7 @@ select.form-control {
 
 .send-button {
     padding: 14px 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #3498db;
     color: white;
     border: none;
     border-radius: 20px;
@@ -500,12 +500,13 @@ select.form-control {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
 }
 
 .send-button:hover:not(:disabled) {
+    background: #2980b9;
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
 }
 
 .send-button:active:not(:disabled) {
@@ -513,7 +514,7 @@ select.form-control {
 }
 
 .send-button:disabled {
-    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    background: #cbd5e1;
     cursor: not-allowed;
     transform: none;
     box-shadow: 0 2px 8px rgba(203, 213, 225, 0.3);
@@ -640,16 +641,17 @@ select.form-control {
     }
 }
 
-/* Navigation Tabs - Enhanced Design */
+/* Navigation Tabs - Clean Design */
 .navigation-tabs {
     display: flex;
     margin-bottom: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: white;
     border-radius: 12px 12px 0 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     padding: 4px;
     position: relative;
     overflow: hidden;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .navigation-tabs::before {
@@ -659,7 +661,7 @@ select.form-control {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.02) 0%, rgba(44, 62, 80, 0.02) 100%);
     pointer-events: none;
 }
 
@@ -670,7 +672,7 @@ select.form-control {
     border: none;
     cursor: pointer;
     text-decoration: none;
-    color: rgba(255,255,255,0.8);
+    color: #64748b;
     font-weight: 600;
     font-size: 15px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -679,20 +681,19 @@ select.form-control {
     text-align: center;
     position: relative;
     z-index: 2;
-    backdrop-filter: blur(10px);
 }
 
 .nav-tab:hover:not(.active) {
-    background: rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.95);
+    background: #f8fafc;
+    color: #2c3e50;
     transform: translateY(-1px);
 }
 
 .nav-tab.active {
-    background: white;
-    color: #4a5568;
+    background: #3498db;
+    color: white;
     font-weight: 700;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25);
     transform: translateY(-2px);
 }
 
@@ -704,7 +705,7 @@ select.form-control {
     transform: translateX(-50%);
     width: 40px;
     height: 3px;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: #2980b9;
     border-radius: 2px;
 }
 

@@ -6,7 +6,13 @@ import sys
 import logging
 import traceback
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Option            # Default instructions for MCP-enabled agent
+            instructions = """
+            You are a helpful agent with access to to-do management tools via MCP.
+            You can help users create, list, update, and delete to-do items using the available MCP tools.
+            When users ask about to-dos, use the MCP tools to perform the requested actions.
+            Always be helpful and provide clear feedback about what actions you've taken.
+            """
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -165,9 +171,9 @@ class AzureAIAgentService:
             # Default instructions if none provided
             if not instructions:
                 instructions = """
-                You are a helpful agent that can use MCP tools to assist users with todo management. 
+                You are a helpful agent that can use MCP tools to assist users with to-do management. 
                 Use the available MCP tools to answer questions and perform tasks like creating, 
-                listing, updating, and deleting todos.
+                listing, updating, and deleting to-dos.
                 """
             
             # Create agent with MCP tool definitions
@@ -210,9 +216,9 @@ class AzureAIAgentService:
             
             # Default instructions for MCP-enabled agent
             instructions = """
-            You are a helpful AI agent with access to todo management tools via MCP.
-            You can help users create, list, update, and delete todo items using the available MCP tools.
-            When users ask about todos, use the MCP tools to perform the requested actions.
+            You are a helpful agent with access to to-do management tools via MCP.
+            You can help users create, list, update, and delete to-do items using the available MCP tools.
+            When users ask about to-dos, use the MCP tools to perform the requested actions.
             Always be helpful and provide clear feedback about what actions you've taken.
             """
             
