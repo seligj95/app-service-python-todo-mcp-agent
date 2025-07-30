@@ -86,7 +86,7 @@ class ChatInterface {
         // Show enhanced loading state with typing indicator
         this.setLoading(true);
         this.addTypingIndicator();
-        this.updateStatus('AI is thinking...', 'processing');
+        this.updateStatus('AI Agent is thinking...', 'processing');
 
         try {
             const response = await fetch('/api/chat/message', {
@@ -135,7 +135,7 @@ class ChatInterface {
         
         typingDiv.innerHTML = `
             <div class="message-content">
-                <strong>AI Assistant:</strong> 
+                <strong>Agent:</strong> 
                 <div class="typing-dots">
                     <span class="dot"></span>
                     <span class="dot"></span>
@@ -163,7 +163,7 @@ class ChatInterface {
         
         messageDiv.innerHTML = `
             <div class="message-content">
-                <strong>${sender === 'user' ? 'You' : 'AI Assistant'}:</strong> ${this.formatMessage(content)}
+                <strong>${sender === 'user' ? 'You' : 'Agent'}:</strong> ${this.formatMessage(content)}
             </div>
             <div class="message-time">${timestamp}</div>
         `;

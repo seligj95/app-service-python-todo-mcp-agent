@@ -210,7 +210,7 @@ class AzureAIAgentService:
             
             # Default instructions for MCP-enabled agent
             instructions = """
-            You are a helpful AI assistant with access to todo management tools via MCP. 
+            You are a helpful AI agent with access to todo management tools via MCP.
             You can help users create, list, update, and delete todo items using the available MCP tools.
             When users ask about todos, use the MCP tools to perform the requested actions.
             Always be helpful and provide clear feedback about what actions you've taken.
