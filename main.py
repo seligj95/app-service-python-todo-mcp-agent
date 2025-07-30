@@ -63,18 +63,27 @@ def get_azure_ai_project_endpoint():
     raise ValueError(f"Invalid AZURE_AI_PROJECT_ENDPOINT format: {azure_ai_endpoint}")
 
 
-PROJECT_ENDPOINT = get_azure_ai_project_endpoint()
-MODEL_DEPLOYMENT = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
-if not MODEL_DEPLOYMENT:
-    raise ValueError("AZURE_OPENAI_DEPLOYMENT_NAME environment variable is required")
-
-# MCP server URL from Bicep deployment
-azure_app_service_url = os.getenv('AZURE_APP_SERVICE_URL')
-if not azure_app_service_url:
-    raise ValueError("AZURE_APP_SERVICE_URL environment variable is required")
-
-MCP_SERVER_URL = azure_app_service_url + "/mcp/stream"
-MCP_SERVER_LABEL = "todolist"
+# Make Azure AI configuration optional for local development
+try:
+    PROJECT_ENDPOINT = get_azure_ai_project_endpoint()
+    MODEL_DEPLOYMENT = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
+    if not MODEL_DEPLOYMENT:
+        raise ValueError("AZURE_OPENAI_DEPLOYMENT_NAME environment variable is required")
+    
+    # MCP server URL from Bicep deployment or default to localhost
+    azure_app_service_url = os.getenv('AZURE_APP_SERVICE_URL', 'http://localhost:8000')
+    MCP_SERVER_URL = azure_app_service_url + "/mcp/stream"
+    MCP_SERVER_LABEL = "todolist"
+    AI_CONFIG_AVAILABLE = True
+    logger.info("✓ Azure AI configuration loaded successfully")
+except Exception as e:
+    PROJECT_ENDPOINT = None
+    MODEL_DEPLOYMENT = None
+    MCP_SERVER_URL = None
+    MCP_SERVER_LABEL = None
+    AI_CONFIG_AVAILABLE = False
+    logger.warning(f"⚠️ Azure AI not configured: {e}")
+    logger.info("ℹ️ Running in local mode - AI chat features disabled")
 
 
 # Pydantic Models
@@ -312,18 +321,22 @@ class AzureAIAgentService:
             logger.error(f"Full traceback: {traceback.format_exc()}")
             return ChatResponse(response=f"Error: {str(e)}")
 
-# Initialize Azure AI service
-ai_service = AzureAIAgentService()
+# Initialize Azure AI service only if configuration is available
+ai_service = AzureAIAgentService() if AI_CONFIG_AVAILABLE else None
 
 # Template configuration
 templates = Jinja2Templates(directory="templates")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Todo MCP FastAPI Server with Azure AI Agents")
+    logger.info("Starting To-do MCP FastAPI Server")
     
-    # Initialize Azure AI service
-    await ai_service.initialize()
+    # Initialize Azure AI service if available
+    if ai_service and AI_CONFIG_AVAILABLE:
+        await ai_service.initialize()
+        logger.info("✓ Azure AI service initialized")
+    else:
+        logger.info("ℹ️ Running without Azure AI - basic to-do features only")
     
     yield
     logger.info("Shutting down Todo MCP FastAPI Server")
@@ -365,7 +378,9 @@ async def health():
         "status": "healthy", 
         "todos_count": len(todos_storage),
         "azure_ai_available": AZURE_AI_AVAILABLE,
-        "ai_service_initialized": ai_service.is_initialized,
+        "ai_service_initialized": (
+            ai_service.is_initialized if ai_service else False
+        ),
         "project_endpoint": PROJECT_ENDPOINT,
         "mcp_server_url": MCP_SERVER_URL
     }
@@ -444,10 +459,10 @@ async def delete_todo_api(todo_id: int):
 @app.post("/api/chat/session", response_model=ChatSession)
 async def create_chat_session():
     """Create a new chat session"""
-    if not ai_service.is_initialized:
+    if not ai_service or not ai_service.is_initialized:
         raise HTTPException(
             status_code=503, 
-            detail="Azure AI service is not available"
+            detail="Azure AI service is not available. Please configure environment variables for AI chat features."
         )
     
     session_id = generate_session_id()
@@ -486,10 +501,10 @@ async def chat_with_ai_session(chat_message: ChatSessionMessage):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_with_ai(chat_message: ChatMessage):
     """Send a message to the AI agent with MCP tools (legacy endpoint)"""
-    if not ai_service.is_initialized:
+    if not ai_service or not ai_service.is_initialized:
         raise HTTPException(
             status_code=503, 
-            detail="Azure AI service is not available"
+            detail="Azure AI service is not available. Please configure environment variables for AI chat features."
         )
     
     response = await ai_service.chat_with_agent(chat_message.message)
@@ -499,8 +514,9 @@ async def chat_with_ai(chat_message: ChatMessage):
 async def chat_status():
     """Get the status of the Azure AI chat service"""
     return {
-        "available": ai_service.is_initialized,
+        "available": ai_service.is_initialized if ai_service else False,
         "azure_ai_packages_available": AZURE_AI_AVAILABLE,
+        "ai_config_available": AI_CONFIG_AVAILABLE,
         "project_endpoint": PROJECT_ENDPOINT,
         "model_deployment": MODEL_DEPLOYMENT,
         "mcp_server_configured": bool(MCP_SERVER_URL)

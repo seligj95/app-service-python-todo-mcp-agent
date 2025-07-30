@@ -33,11 +33,41 @@ A FastAPI-based to-do list application with Azure AI Agents integration and Mode
    ```bash
    python main.py
    ```
+   
+   > **Note**: The app will start successfully and provide basic to-do functionality without any environment variables. AI chat features require Azure resource deployment and configuration (see below).
 
-3. **Access the app**:
-   - To-do List: http://localhost:8000
-   - AI Chat: http://localhost:8000/chat
-   - Health Check: http://localhost:8000/health
+3. **Configure Azure AI (Optional)**:
+   For AI chat features in your local environment, if you have AI Foundry resources already deployed, set these environment variables. Ensure you're logged into the Azure CLI using `az login` as that credential is required to access the chat.
+   
+   **Option A: Create a `.env` file in the project root:**
+   ```bash
+   # .env file - Optional for local AI Chat functionality
+   AZURE_AI_PROJECT_ENDPOINT=https://my-ai-project-abc123.westus.ai.azure.com
+   AZURE_AI_PROJECT_NAME=my-todo-project
+   AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+   AZURE_APP_SERVICE_URL=http://localhost:8000
+   ```
+   
+   **Option B: Set environment variables in PowerShell:**
+   ```powershell
+   $env:AZURE_AI_PROJECT_ENDPOINT="https://my-ai-project-abc123.westus.ai.azure.com"
+   $env:AZURE_AI_PROJECT_NAME="my-todo-project"
+   $env:AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o"
+   $env:AZURE_APP_SERVICE_URL="http://localhost:8000"
+   ```
+   
+   **Option C: Set environment variables in Command Prompt:**
+   ```cmd
+   set AZURE_AI_PROJECT_ENDPOINT=https://my-ai-project-abc123.eastus2.ai.azure.com
+   set AZURE_AI_PROJECT_NAME=my-todo-project
+   set AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+   set AZURE_APP_SERVICE_URL=http://localhost:8000
+   ```
+
+4. **Access the app**:
+   - To-do List: http://localhost:8000 ✅ (always works)
+   - AI Chat: http://localhost:8000/chat ⚠️ (requires Azure setup)
+   - Health Check: http://localhost:8000/health ✅ (always works)
 
 ### Azure Deployment
 
@@ -147,22 +177,6 @@ curl -X POST http://localhost:8000/mcp/stream \
 ### MCP Server
 - `GET /mcp/stream` - MCP server info
 - `POST /mcp/stream` - MCP JSON-RPC endpoint
-
-## Configuration
-
-Environment variables are automatically configured during Azure deployment:
-
-- `AZURE_AI_PROJECT_ENDPOINT` - AI Foundry endpoint
-- `AZURE_OPENAI_DEPLOYMENT_NAME` - GPT-4o deployment name
-- `AZURE_APP_SERVICE_URL` - App service URL for MCP
-
-## Development
-
-The app uses:
-- **FastAPI** for the web framework
-- **Azure AI Agents** for AI functionality
-- **Bootstrap 5** for UI styling
-- **In-memory storage** for simplicity (easily upgradeable)
 
 ## License
 
