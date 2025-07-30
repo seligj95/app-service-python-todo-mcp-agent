@@ -83,15 +83,49 @@ The application combines three key components:
                        └──────────────────┘
 ```
 
-## MCP Tools
+## Model Context Protocol (MCP)
+
+This application implements a complete MCP server following the [MCP specification](https://modelcontextprotocol.io/introduction). The MCP server exposes todo management functionality as tools that AI agents can discover and use.
+
+### MCP Documentation and Resources
+
+See **[Connect to Model Context Protocol servers (preview)](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/tools/model-context-protocol#how-it-works)** to learn about the agent integration this is used in this app.
+
+### Important Limitations and Requirements
+
+⚠️ **Azure AI Foundry MCP Connectivity**: Currently, Azure AI Foundry may have network restrictions that prevent connecting to external MCP servers. This is a known limitation in certain Azure regions and configurations.
+
+**Requirements for MCP in Azure:**
+- Azure AI Foundry project must be in a supported region. See the supported regions [here](https://learn.microsoft.com/azure/ai-foundry/agents/how-to/tools/model-context-protocol#how-it-works).
+- Network policies must allow outbound connections to MCP servers
+- MCP server must be publicly accessible with proper CORS configuration
+- API version compatibility with Azure AI Agents service
+
+**Workaround**: While MCP integration is implemented and working locally, you can still use the AI chat functionality through the direct agent API endpoints.
+
+### MCP Tools Available
 
 The application exposes these tools for AI agents:
 
-- `create_todo` - Create new todos
-- `list_todos` - List all or filtered todos  
-- `update_todo` - Update existing todos
-- `delete_todo` - Delete todos
+- `create_todo` - Create new todos with title, description, and priority
+- `list_todos` - List all todos or filter by completion status  
+- `update_todo` - Update existing todo properties
+- `delete_todo` - Delete todos by ID
 - `mark_todo_complete` - Toggle completion status
+
+### Testing MCP Locally
+
+You can test the MCP server directly:
+
+```bash
+# Test MCP server info
+curl http://localhost:8000/mcp/stream
+
+# Test tool discovery
+curl -X POST http://localhost:8000/mcp/stream \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
+```
 
 ## API Endpoints
 

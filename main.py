@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 try:
     from azure.identity import DefaultAzureCredential
     from azure.ai.agents import AgentsClient
-    from azure.ai.agents.models import McpTool
+    from azure.ai.agents.models import McpTool, RunStatus
     AZURE_AI_AVAILABLE = True
     logger.info("✓ Azure AI packages imported successfully")
 except ImportError as e:
@@ -202,17 +202,18 @@ class AzureAIAgentService:
                 credential=DefaultAzureCredential()
             )
             
-            # Initialize MCP tool
+            # Re-enable MCP tool integration with proper implementation
             mcp_tool = McpTool(
                 server_label=MCP_SERVER_LABEL,
                 server_url=MCP_SERVER_URL,
             )
             
-            # Default instructions
+            # Default instructions for MCP-enabled agent
             instructions = """
-            You are a helpful agent that can use MCP tools to assist users with todo management. 
-            Use the available MCP tools to answer questions and perform tasks like creating, 
-            listing, updating, and deleting todos.
+            You are a helpful AI assistant with access to todo management tools via MCP. 
+            You can help users create, list, update, and delete todo items using the available MCP tools.
+            When users ask about todos, use the MCP tools to perform the requested actions.
+            Always be helpful and provide clear feedback about what actions you've taken.
             """
             
             with fresh_client:
@@ -242,22 +243,61 @@ class AzureAIAgentService:
                 
                 # Create and process agent run with MCP tools
                 run = fresh_client.runs.create_and_process(
-                    thread_id=thread.id, 
-                    agent_id=agent.id, 
+                    thread_id=thread.id,
+                    agent_id=agent.id,
                     tool_resources=mcp_tool.resources
                 )
-                logger.info(f"Created run, ID: {run.id}")
+                logger.info(f"Created run, ID: {run.id}, Status: {run.status}")
                 
-                # Get the response
-                messages = fresh_client.messages.list(thread_id=thread.id)
+                # Check run status (detailed debugging like sample script)
+                logger.info(f"Run completed with status: {run.status}")
+                if str(run.status) == "RunStatus.FAILED":
+                    logger.error(f"Run failed: {getattr(run, 'last_error', 'Unknown error')}")
+                    assistant_response = f"Run failed: {getattr(run, 'last_error', 'Unknown error')}"
                 
-                # Extract the assistant's response
-                assistant_response = "No response generated"
-                for msg in messages:
-                    if msg.role == "assistant" and msg.text_messages:
-                        last_text = msg.text_messages[-1]
-                        assistant_response = last_text.text.value
-                        break
+                # Display run steps and tool calls (like sample script)
+                try:
+                    run_steps = fresh_client.run_steps.list(thread_id=thread.id, run_id=run.id)
+                    for step in run_steps:
+                        logger.info(f"Step {step.id} status: {step.status}")
+                        
+                        # Check if there are tool calls in the step details
+                        step_details = getattr(step, 'step_details', {})
+                        tool_calls = getattr(step_details, 'tool_calls', []) if step_details else []
+                        
+                        if tool_calls:
+                            logger.info("  MCP Tool calls:")
+                            for call in tool_calls:
+                                logger.info(f"    Tool Call ID: {getattr(call, 'id', 'N/A')}")
+                                logger.info(f"    Type: {getattr(call, 'type', 'N/A')}")
+                                logger.info(f"    Name: {getattr(call, 'name', 'N/A')}")
+                except Exception as e:
+                    logger.error(f"Error retrieving run steps: {e}")
+                
+                if str(run.status) == "RunStatus.COMPLETED":
+                    # Get the response
+                    messages_paged = fresh_client.messages.list(thread_id=thread.id)
+                    messages = list(messages_paged)  # Convert ItemPaged to list
+                    logger.info(f"Retrieved {len(messages)} messages from thread")
+                    
+                    # Log all messages for debugging
+                    for i, msg in enumerate(messages):
+                        logger.info(f"Message {i}: role={msg.role}, has_text={bool(msg.text_messages)}")
+                        if msg.text_messages:
+                            for j, text_msg in enumerate(msg.text_messages):
+                                logger.info(f"  Text {j}: {text_msg.text.value[:100]}...")
+                    
+                    # Extract the assistant's response (get the last assistant message)
+                    assistant_response = "No response generated"
+                    assistant_messages = [msg for msg in messages if msg.role == "assistant"]
+                    if assistant_messages:
+                        last_assistant_msg = assistant_messages[-1]
+                        if last_assistant_msg.text_messages:
+                            assistant_response = last_assistant_msg.text_messages[-1].text.value
+                            logger.info(f"Found assistant response: {assistant_response[:100]}...")
+                else:
+                    logger.warning(f"Run completed with unexpected status: {run.status}")
+                    assistant_response = f"Run completed with status: {run.status}"
                 
                 # Clean up - delete the agent
                 fresh_client.delete_agent(agent.id)
@@ -692,40 +732,80 @@ mcp_server = MCPServer()
 # MCP Server endpoints (for direct MCP client access)
 @app.get("/mcp/stream")
 async def mcp_stream_info():
-    """Information about the MCP stream endpoint"""
+    """Information about the MCP stream endpoint with enhanced compatibility info"""
     return {
-        "info": "MCP Streamable HTTP Transport Endpoint",
+        "info": "MCP Streamable HTTP Transport Endpoint", 
         "description": "This endpoint provides access to todo management tools via MCP",
         "mcp_server_url": MCP_SERVER_URL,
+        "protocol_version": "2024-11-05",
+        "transport": "http",
+        "capabilities": {
+            "tools": {
+                "listChanged": True
+            }
+        },
+        "server_info": {
+            "name": "Todo MCP Server",
+            "version": "1.0.0"
+        },
         "available_tools": [
             "create_todo", 
             "list_todos", 
             "update_todo", 
             "delete_todo", 
             "mark_todo_complete"
-        ]
+        ],
+        "endpoints": {
+            "jsonrpc": f"{MCP_SERVER_URL}",
+            "methods": ["initialize", "tools/list", "tools/call"]
+        }
     }
 
 @app.post("/mcp/stream")
 async def mcp_stream_endpoint(request: Request):
-    """Main MCP endpoint with JSON-RPC support"""
+    """Main MCP endpoint with JSON-RPC support and enhanced compatibility"""
     try:
+        # Get request data
         request_data = await request.json()
-        logger.info(f"MCP request: {request_data}")
+        logger.info(f"MCP request received: method={request_data.get('method')}, id={request_data.get('id')}")
         
+        # Handle the request through our MCP server
         response_data = await mcp_server.handle_request(request_data)
-        logger.info(f"MCP response: {response_data}")
+        logger.info(f"MCP response: id={response_data.get('id')}, has_result={bool(response_data.get('result'))}, has_error={bool(response_data.get('error'))}")
         
-        return response_data
+        # Return with proper headers for compatibility
+        return JSONResponse(
+            content=response_data,
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
+                "Cache-Control": "no-cache"
+            }
+        )
         
     except Exception as e:
         logger.error(f"Error in MCP endpoint: {e}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
-        return {
+        
+        error_response = {
             "jsonrpc": "2.0",
-            "id": None,
-            "error": {"code": -32603, "message": f"Internal error: {str(e)}"}
+            "id": request_data.get("id") if "request_data" in locals() else None,
+            "error": {
+                "code": -32603,
+                "message": f"Internal error: {str(e)}"
+            }
         }
+        
+        return JSONResponse(
+            content=error_response,
+            status_code=500,
+            headers={
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
 
 @app.options("/mcp/stream")
 async def mcp_stream_options():

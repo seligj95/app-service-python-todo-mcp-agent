@@ -83,8 +83,9 @@ class ChatInterface {
         this.addMessage(message, 'user');
         this.chatInput.value = '';
         
-        // Show loading state
+        // Show enhanced loading state with typing indicator
         this.setLoading(true);
+        this.addTypingIndicator();
         this.updateStatus('AI is thinking...', 'processing');
 
         try {
@@ -105,6 +106,9 @@ class ChatInterface {
 
             const data = await response.json();
             
+            // Remove typing indicator
+            this.removeTypingIndicator();
+            
             // Add assistant response
             this.addMessage(data.response, 'assistant');
             
@@ -116,10 +120,38 @@ class ChatInterface {
             this.updateStatus('Ready to chat!', 'connected');
         } catch (error) {
             console.error('Send message failed:', error);
+            this.removeTypingIndicator();
             this.addMessage('Sorry, I encountered an error processing your request. Please try again.', 'assistant', true);
             this.updateStatus('Error occurred', 'error');
         } finally {
             this.setLoading(false);
+        }
+    }
+
+    addTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message assistant-message typing-indicator';
+        typingDiv.id = 'typing-indicator';
+        
+        typingDiv.innerHTML = `
+            <div class="message-content">
+                <strong>AI Assistant:</strong> 
+                <div class="typing-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+        `;
+        
+        this.chatMessages.appendChild(typingDiv);
+        this.scrollToBottom();
+    }
+
+    removeTypingIndicator() {
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
         }
     }
     
