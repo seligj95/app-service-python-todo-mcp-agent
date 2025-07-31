@@ -69,11 +69,20 @@ def test_azure_ai_mcp():
         # Test MCP tool creation
         print("\n--- Testing MCP Tool Creation ---")
         try:
-            mcp_url = f"{app_url}/mcp/stream"
-            print(f"MCP URL: {mcp_url}")
-            
-            mcp_tool = McpTool(mcp_server_url=mcp_url)
-            print(f"✅ MCP Tool created: {mcp_tool}")
+            app_url = os.getenv('AZURE_APP_SERVICE_URL')
+            if app_url:
+                mcp_url = f"{app_url}/mcp/stream"
+                print(f"MCP URL: {mcp_url}")
+                
+                # Use correct parameter names
+                mcp_tool = McpTool(
+                    server_label="todo-mcp-server",
+                    server_url=mcp_url
+                )
+                print(f"✅ MCP Tool created: {mcp_tool}")
+            else:
+                print("❌ No AZURE_APP_SERVICE_URL")
+                
         except Exception as e:
             print(f"❌ MCP Tool creation error: {e}")
             import traceback
