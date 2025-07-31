@@ -273,7 +273,7 @@ class AzureAIAgentService:
                 
                 # Check run status (detailed debugging like sample script)
                 logger.info(f"Run completed with status: {run.status}")
-                if str(run.status) == "RunStatus.FAILED":
+                if run.status == "failed":
                     logger.error(f"Run failed: {getattr(run, 'last_error', 'Unknown error')}")
                     assistant_response = f"Run failed: {getattr(run, 'last_error', 'Unknown error')}"
                 
@@ -281,22 +281,22 @@ class AzureAIAgentService:
                 try:
                     run_steps = fresh_client.run_steps.list(thread_id=thread.id, run_id=run.id)
                     for step in run_steps:
-                        logger.info(f"Step {step.id} status: {step.status}")
+                        logger.info(f"Step {step['id']} status: {step['status']}")
                         
                         # Check if there are tool calls in the step details
-                        step_details = getattr(step, 'step_details', {})
-                        tool_calls = getattr(step_details, 'tool_calls', []) if step_details else []
+                        step_details = step.get('step_details', {})
+                        tool_calls = step_details.get('tool_calls', [])
                         
                         if tool_calls:
                             logger.info("  MCP Tool calls:")
                             for call in tool_calls:
-                                logger.info(f"    Tool Call ID: {getattr(call, 'id', 'N/A')}")
-                                logger.info(f"    Type: {getattr(call, 'type', 'N/A')}")
-                                logger.info(f"    Name: {getattr(call, 'name', 'N/A')}")
+                                logger.info(f"    Tool Call ID: {call.get('id', 'N/A')}")
+                                logger.info(f"    Type: {call.get('type', 'N/A')}")
+                                logger.info(f"    Name: {call.get('name', 'N/A')}")
                 except Exception as e:
                     logger.error(f"Error retrieving run steps: {e}")
                 
-                if str(run.status) == "RunStatus.COMPLETED":
+                if run.status == "completed":
                     # Get the response
                     messages_paged = fresh_client.messages.list(thread_id=thread.id)
                     messages = list(messages_paged)  # Convert ItemPaged to list
