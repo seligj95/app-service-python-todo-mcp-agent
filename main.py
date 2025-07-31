@@ -218,7 +218,7 @@ class AzureAIAgentService:
         
         # Create a fresh client for each request to avoid transport issues
         try:
-            # Create fresh agents client for this request
+            # Create fresh agents client for this request (exactly like working sample)
             fresh_client = AgentsClient(
                 endpoint=PROJECT_ENDPOINT,
                 credential=DefaultAzureCredential()
@@ -232,27 +232,25 @@ class AzureAIAgentService:
             
             # Default instructions for MCP-enabled agent
             instructions = """
-            You are a helpful agent with access to to-do management tools via MCP.
-            You can help users create, list, update, and delete to-do items using the available MCP tools.
-            When users ask about to-dos, use the MCP tools to perform the requested actions.
-            Always be helpful and provide clear feedback about what actions you've taken.
-            """
+            You are a helpful agent that can use MCP tools to assist users. 
+            Use the available MCP tools to answer questions and perform tasks."""
             
             with fresh_client:
-                # Create agent with MCP tool definitions
+                # Create agent with MCP tool definitions (exactly like working sample)
                 agent = fresh_client.create_agent(
                     model=MODEL_DEPLOYMENT,
-                    name="todo-mcp-agent",
+                    name="my-mcp-agent",
                     instructions=instructions,
                     tools=mcp_tool.definitions,
                 )
                 logger.info(f"Created agent with MCP tools, ID: {agent.id}")
+                logger.info(f"MCP Server: {mcp_tool.server_label} at {mcp_tool.server_url}")
                 
-                # Create thread for communication
+                # Create thread for communication (exactly like working sample)
                 thread = fresh_client.threads.create()
                 logger.info(f"Created thread, ID: {thread.id}")
                 
-                # Create message on the thread
+                # Create message on the thread (exactly like working sample)
                 message_obj = fresh_client.messages.create(
                     thread_id=thread.id,
                     role="user",
@@ -260,10 +258,10 @@ class AzureAIAgentService:
                 )
                 logger.info(f"Created message, ID: {message_obj.id}")
                 
-                # Set MCP tool approval mode
+                # Set MCP tool approval mode (exactly like working sample)
                 mcp_tool.set_approval_mode("never")
                 
-                # Create and process agent run with MCP tools
+                # Create and process agent run with MCP tools (exactly like working sample)
                 run = fresh_client.runs.create_and_process(
                     thread_id=thread.id,
                     agent_id=agent.id,
@@ -271,26 +269,12 @@ class AzureAIAgentService:
                 )
                 logger.info(f"Created run, ID: {run.id}, Status: {run.status}")
                 
-                # Log detailed run information for debugging
-                logger.info(f"Run object type: {type(run)}")
-                logger.info(f"Run object attributes: {dir(run)}")
-                if hasattr(run, '__dict__'):
-                    logger.info(f"Run object dict: {run.__dict__}")
-                if hasattr(run, 'last_error'):
-                    logger.info(f"Run last_error: {run.last_error}")
-                if hasattr(run, 'required_action'):
-                    logger.info(f"Run required_action: {run.required_action}")
-                
-                # Check run status (detailed debugging like sample script)
+                # Check run status (exactly like working sample)
                 logger.info(f"Run completed with status: {run.status}")
-                if hasattr(run, 'last_error') and run.last_error:
-                    logger.error(f"Run failed: {run.last_error}")
-                    assistant_response = f"Run failed: {run.last_error}"
-                elif "failed" in str(run.status).lower():
-                    logger.error(f"Run failed with status: {run.status}")
-                    assistant_response = f"Run failed with status: {run.status}"
+                if run.status == "failed":
+                    logger.error(f"Run failed: {getattr(run, 'last_error', 'Unknown error')}")
                 
-                # Display run steps and tool calls (like sample script)
+                # Display run steps and tool calls (exactly like working sample)
                 try:
                     run_steps = fresh_client.run_steps.list(thread_id=thread.id, run_id=run.id)
                     for step in run_steps:
@@ -303,24 +287,22 @@ class AzureAIAgentService:
                         if tool_calls:
                             logger.info("  MCP Tool calls:")
                             for call in tool_calls:
-                                logger.info(f"    Tool Call ID: {call.get('id', 'N/A')}")
-                                logger.info(f"    Type: {call.get('type', 'N/A')}")
-                                logger.info(f"    Name: {call.get('name', 'N/A')}")
+                                logger.info(f"    Tool Call ID: {call.get('id')}")
+                                logger.info(f"    Type: {call.get('type')}")
+                                logger.info(f"    Name: {call.get('name')}")
                 except Exception as e:
                     logger.error(f"Error retrieving run steps: {e}")
                 
                 if "completed" in str(run.status).lower():
-                    # Get the response
-                    messages_paged = fresh_client.messages.list(thread_id=thread.id)
-                    messages = list(messages_paged)  # Convert ItemPaged to list
-                    logger.info(f"Retrieved {len(messages)} messages from thread")
-                    
-                    # Log all messages for debugging
-                    for i, msg in enumerate(messages):
-                        logger.info(f"Message {i}: role={msg.role}, has_text={bool(msg.text_messages)}")
+                    # Fetch and log all messages (exactly like working sample)
+                    messages = fresh_client.messages.list(thread_id=thread.id)
+                    logger.info("Conversation:")
+                    logger.info("-" * 50)
+                    for msg in messages:
                         if msg.text_messages:
-                            for j, text_msg in enumerate(msg.text_messages):
-                                logger.info(f"  Text {j}: {text_msg.text.value[:100]}...")
+                            last_text = msg.text_messages[-1]
+                            logger.info(f"{msg.role.upper()}: {last_text.text.value}")
+                            logger.info("-" * 50)
                     
                     # Extract the assistant's response (get the last assistant message)
                     assistant_response = "No response generated"
@@ -334,7 +316,7 @@ class AzureAIAgentService:
                     logger.warning(f"Run completed with unexpected status: {run.status}")
                     assistant_response = f"Run completed with status: {run.status}"
                 
-                # Clean up - delete the agent
+                # Clean up - delete the agent (exactly like working sample)
                 fresh_client.delete_agent(agent.id)
                 logger.info("Deleted agent")
                 
