@@ -224,26 +224,27 @@ class AzureAIAgentService:
                 credential=DefaultAzureCredential()
             )
             
-            # Re-enable MCP tool integration with proper implementation
+            # Use external MCP server instead of self-hosted
+            # Using the memory MCP server as a test
             mcp_tool = McpTool(
-                server_label=MCP_SERVER_LABEL,
-                server_url=MCP_SERVER_URL,
+                server_label="memory",
+                server_url="npx @modelcontextprotocol/server-memory",
             )
             
-            # Default instructions for MCP-enabled agent
+            # Default instructions for external MCP-enabled agent
             instructions = """
-            You are a helpful agent that can use MCP tools to assist users. 
-            Use the available MCP tools to answer questions and perform tasks."""
+            You are a helpful agent that can use memory tools. 
+            Use the available memory tools to remember and recall information."""
             
             with fresh_client:
                 # Create agent with MCP tool definitions (exactly like working sample)
                 agent = fresh_client.create_agent(
                     model=MODEL_DEPLOYMENT,
-                    name="my-mcp-agent",
+                    name="memory-mcp-agent",
                     instructions=instructions,
                     tools=mcp_tool.definitions,
                 )
-                logger.info(f"Created agent with MCP tools, ID: {agent.id}")
+                logger.info(f"Created agent with external memory MCP tools, ID: {agent.id}")
                 logger.info(f"MCP Server: {mcp_tool.server_label} at {mcp_tool.server_url}")
                 
                 # Create thread for communication (exactly like working sample)
