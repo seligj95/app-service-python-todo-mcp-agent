@@ -271,11 +271,24 @@ class AzureAIAgentService:
                 )
                 logger.info(f"Created run, ID: {run.id}, Status: {run.status}")
                 
+                # Log detailed run information for debugging
+                logger.info(f"Run object type: {type(run)}")
+                logger.info(f"Run object attributes: {dir(run)}")
+                if hasattr(run, '__dict__'):
+                    logger.info(f"Run object dict: {run.__dict__}")
+                if hasattr(run, 'last_error'):
+                    logger.info(f"Run last_error: {run.last_error}")
+                if hasattr(run, 'required_action'):
+                    logger.info(f"Run required_action: {run.required_action}")
+                
                 # Check run status (detailed debugging like sample script)
                 logger.info(f"Run completed with status: {run.status}")
-                if run.status == "failed":
-                    logger.error(f"Run failed: {getattr(run, 'last_error', 'Unknown error')}")
-                    assistant_response = f"Run failed: {getattr(run, 'last_error', 'Unknown error')}"
+                if hasattr(run, 'last_error') and run.last_error:
+                    logger.error(f"Run failed: {run.last_error}")
+                    assistant_response = f"Run failed: {run.last_error}"
+                elif "failed" in str(run.status).lower():
+                    logger.error(f"Run failed with status: {run.status}")
+                    assistant_response = f"Run failed with status: {run.status}"
                 
                 # Display run steps and tool calls (like sample script)
                 try:
@@ -296,7 +309,7 @@ class AzureAIAgentService:
                 except Exception as e:
                     logger.error(f"Error retrieving run steps: {e}")
                 
-                if run.status == "completed":
+                if "completed" in str(run.status).lower():
                     # Get the response
                     messages_paged = fresh_client.messages.list(thread_id=thread.id)
                     messages = list(messages_paged)  # Convert ItemPaged to list
