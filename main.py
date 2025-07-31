@@ -19,9 +19,23 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with cleaner output
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
 logger = logging.getLogger(__name__)
+
+# Reduce Azure and HTTP noise
+logging.getLogger("azure").setLevel(logging.WARNING)
+logging.getLogger("azure.core").setLevel(logging.WARNING)
+logging.getLogger("azure.identity").setLevel(logging.WARNING)
+logging.getLogger("azure.ai").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # Azure AI imports
 try:
@@ -29,10 +43,11 @@ try:
     from azure.ai.agents import AgentsClient
     from azure.ai.agents.models import McpTool
     AZURE_AI_AVAILABLE = True
-    logger.info("✓ Azure AI packages imported successfully")
+    logger.info("✅ Azure AI packages available")
 except ImportError as e:
     AZURE_AI_AVAILABLE = False
-    logger.error(f"✗ Azure AI import failed: {e}")
+    logger.warning(f"⚠️ Azure AI packages not available: {e}")
+    logger.info("ℹ️ App will run in basic mode (todo functionality only)")
 
 # Configuration (all from environment variables from Bicep deployment)
 
@@ -422,6 +437,8 @@ async def create_todo_api(todo_data: dict):
             created_at=get_current_time()
         )
         todos_storage[next_id] = todo
+        logger.info(f"📝 Created todo #{next_id}: '{todo_data['title']}' "
+                   f"(priority: {todo_data.get('priority', 'medium')})")
         next_id += 1
         return todo.dict()
     except Exception as e:
@@ -507,7 +524,9 @@ async def chat_with_ai(chat_message: ChatMessage):
             detail="Azure AI service is not available. Please configure environment variables for AI chat features."
         )
     
+    logger.info(f"💬 Chat message: '{chat_message.message[:50]}{'...' if len(chat_message.message) > 50 else ''}'")
     response = await ai_service.chat_with_agent(chat_message.message)
+    logger.info(f"🤖 AI response: '{response.response[:50]}{'...' if len(response.response) > 50 else ''}'")
     return response
 
 @app.get("/api/chat/status")
@@ -832,4 +851,25 @@ async def mcp_stream_options():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    
+    # Print startup message
+    print("🚀 Starting To-do MCP Agent Server...")
+    print("📝 To-do List: http://localhost:8000")
+    print("💬 AI Chat: http://localhost:8000/chat")
+    print("🔧 MCP Server: http://localhost:8000/mcp/stream")
+    print("❤️ Health Check: http://localhost:8000/health")
+    print("-" * 50)
+    
+    # Configure uvicorn with reduced logging
+    log_config = uvicorn.config.LOGGING_CONFIG
+    log_config["formatters"]["default"]["fmt"] = "%(asctime)s - %(levelprefix)s %(message)s"
+    log_config["formatters"]["access"]["fmt"] = '%(asctime)s - %(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s'
+    
+    # Reduce access log verbosity
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000, 
+        log_level="warning",  # Changed from "info" to "warning"
+        access_log=False      # Disable detailed access logs
+    )
